@@ -1,158 +1,113 @@
+**English** | [Русский](README_RU.md)
+
 # Utility Journal Wizard — Memento Database
 
-## Файлы
+## Files
 
-- `memento.d.ts` — декларации основного JS API Memento (Library, Entry, File, SQL, Http, Email, System, Dialog, Notification, Intent).
-- `memento-ui.d.ts` — декларации UI API (ui(), text, layout, button, edit, checkbox, choiceBox, image, pages, findByTag).
-- `jsconfig.json` — настройка WebStorm для проверки типов в .js файлах.
-- `tsconfig.json` — то же самое для VSCode и tsc.
-- `.eslintrc.json` — правила ESLint под ограничения движка Memento (запрет class/spread, подсветка const в теле for-цикла).
-- `package.json` — служебный файл npm (маркер `private: true`, зависимостей нет).
+- `memento.d.ts` — type declarations for the core Memento JS API (Library, Entry, File, SQL, Http, Email, System, Dialog, Notification, Intent).
+- `memento-ui.d.ts` — type declarations for the UI API (ui(), text, layout, button, edit, checkbox, choiceBox, image, pages, findByTag).
+- `jsconfig.json` — WebStorm settings for type checking in `.js` files.
+- `tsconfig.json` — the same for VSCode and `tsc`.
+- `.eslintrc.json` — ESLint rules for Memento engine limitations (bans `class`/spread, flags `const` inside `for`-loop bodies).
+- `package.json` — npm metadata (a `private: true` marker, no dependencies).
 
-> Рабочие скрипты автоматизации Memento в этот репозиторий не входят —
-> здесь только декларации типов и настройки IDE.
+> Memento automation scripts are not part of this repository —
+> it contains only type declarations and IDE settings.
 
-## Подключение в WebStorm
+## Using in WebStorm
 
-В начале `.js`-скрипта:
+At the top of a `.js` script:
 
 ```js
 /// <reference path="./memento.d.ts" />
 /// <reference path="./memento-ui.d.ts" />
 ```
 
-`jsconfig.json` и `.eslintrc.json` кладутся в корень проекта — WebStorm подхватит их автоматически.
+Put `jsconfig.json` and `.eslintrc.json` in the project root — WebStorm picks them up automatically.
 
-## Спецификация языка (проверено эмпирически на реальном движке Memento)
+## Language spec (verified empirically on a real Memento engine)
 
-Несмотря на заявленную в вики "JavaScript 1.7", движок Rhino на практике поддерживает
-большую часть ES6.
+Despite the wiki stating "JavaScript 1.7", the Rhino engine in practice supports most of ES6.
 
-Подтверждено рабочим:
-- let / const
-- стрелочные функции
-- шаблонные строки
-- деструктуризация
+Confirmed working:
+- `let` / `const`
+- arrow functions
+- template literals
+- destructuring
 - Promise
-- for...of
-- Array.includes
-- Object.assign
+- `for...of`
+- `Array.includes`
+- `Object.assign`
 
-Подтверждено НЕработающим (EvaluatorException):
-- class ("identifier is a reserved word: class")
-- spread / rest (...) ("syntax error")
+Confirmed NOT working (EvaluatorException):
+- `class` (`"identifier is a reserved word: class"`)
+- spread / rest `...` (`"syntax error"`)
 
-Модули (import/export) не тестировались отдельно — архитектурно не применимы,
-Memento исполняет один файл скрипта целиком.
+Modules (`import`/`export`) were not tested separately — they are architecturally inapplicable, since Memento executes one script file as a whole.
 
-Правило: вместо spread используем `.concat()`, вместо class — обычные функции
-и объекты (без наследования через prototype, если можно обойтись).
+Rule: use `.concat()` instead of spread, and plain functions and objects instead of `class` (avoiding prototype inheritance where possible).
 
-## Известные особенности окружения (найдено эмпирически)
+## Known environment quirks (found empirically)
 
-### const внутри тела `for`-цикла — НЕ использовать
+### `const` inside a `for`-loop body — DO NOT use
 
-**Симптом:** если внутри тела `for (let i = ...; ...; ...) { ... }` объявить
-`const` (например, `const refs = someArray[i].refs;`), то на второй и
-последующих итерациях значение переменной может не обновляться и
-"залипать" на значении с первой итерации. Внешне это выглядит как баг в
-UI-элементах (например, choiceBox/checkbox всегда показывают выбор с первой
-страницы), хотя сами UI-элементы и данные абсолютно корректны — ошибка
-именно в том, что переменная-ссылка на refs объекта не обновлялась между
-итерациями.
+**Symptom:** if you declare `const` inside a `for (let i = ...; ...; ...) { ... }` body (e.g., `const refs = someArray[i].refs;`), on the second and subsequent iterations the variable value may not update and "stick" to the value from the first iteration. Externally this looks like a bug in UI elements (e.g., a choiceBox/checkbox always shows the selection from the first page), even though the UI elements and the data are perfectly correct — the issue is that the reference variable to the object's `refs` was not updated between iterations.
 
-**Правило:** для любой переменной, объявляемой в теле `for`-цикла — только
-`let`, никогда `const`. `const` можно использовать только для значений,
-объявленных один раз вне цикла, либо внутри функции, которая вызывается
-заново на каждой итерации (там у функции свой полноценный scope на каждый
-вызов, проблема не проявляется).
+**Rule:** for any variable declared inside a `for`-loop body — use `let`, never `const`. `const` may only be used for values declared once outside the loop, or inside a function that is called anew on each iteration (the function has its own full scope per call, so the problem does not manifest).
 
 ```js
-// НЕЛЬЗЯ
+// WRONG
 for (let i = 0; i < items.length; i++) {
-    const refs = items[i].refs; // может "залипнуть" на первой итерации
+    const refs = items[i].refs; // may "stick" to the first iteration
 }
 
-// МОЖНО
+// RIGHT
 for (let i = 0; i < items.length; i++) {
     let refs = items[i].refs;
 }
 ```
 
-Это ограничение специфично для конкретной версии Rhino, используемой в
-Memento — обычные современные JS-движки (V8, SpiderMonkey и т.п.) создают
-полноценную блочную область видимости на каждой итерации и такой проблемы
-не имеют. `.d.ts`-файлы (TypeScript declarations) в принципе не могут
-запретить или подсветить эту ошибку — это не про типы API, а про
-синтаксический паттерн использования языка. Подсветка настроена через
-ESLint (`.eslintrc.json`, правило `no-restricted-syntax`).
+This limitation is specific to the particular Rhino version used in Memento — modern JS engines (V8, SpiderMonkey, etc.) create a full block scope on each iteration and do not have this problem. `.d.ts` files (TypeScript declarations) cannot prohibit or highlight this error by design — it is not about API types but about a syntactic usage pattern of the language. Highlighting is configured via ESLint (`.eslintrc.json`, the `no-restricted-syntax` rule).
 
-### find() — это полнотекстовый поиск, не фильтр по связи
+### `find()` is full-text search, not a link filter
 
-`libByName(...).find(query)` ищет по совпадению текста (аналог поиска через
-интерфейс Memento), а не фильтрует записи по связи "дочерняя запись →
-родительская". Использование `find(house_ID)` для поиска квартир дома может
-в некоторых случаях возвращать не те записи (ложные текстовые совпадения).
+`libByName(...).find(query)` searches by text match (the equivalent of the search in the Memento UI), not by the "child record → parent record" link. Using `find(house_ID)` to search for the flats of a house can, in some cases, return the wrong records (false text matches).
 
 ```js
-// если в библиотеке "Квартиры" есть поле типа Link to Entry на дом:
-const flats_Of_house = libByName('Квартиры').linksTo(house);
+// if the "Flats" library has a field of type Link to Entry to the house:
+const flats_Of_house = libByName('Flats').linksTo(house);
 
-// если связи через Link to Entry нет, только текстовое поле:
-const flats_Of_house = libByName('Квартиры').entries().filter((flat) => flat.field('house_id') === house_ID);
+// if there is no Link to Entry, only a text field:
+const flats_Of_house = libByName('Flats').entries().filter((flat) => flat.field('house_id') === house_ID);
 ```
 
-### ui().edit() без начального текста — .text возвращает undefined, не ''
+### `ui().edit()` without initial text — `.text` returns `undefined`, not `''`
 
-Если `ui().edit()` создан без аргумента и пользователь не вводил текст,
-`.text` при чтении будет `undefined`, а не пустая строка. В скриптах
-подстраховывайтесь везде при чтении: `refs.someEdit.text || ''`.
+If `ui().edit()` is created without an argument and the user has not entered any text, reading `.text` will return `undefined`, not an empty string. In scripts, guard everywhere when reading: `refs.someEdit.text || ''`.
 
-## Связка для разработки (WebStorm/VSCode → эмулятор Memento)
+## Development workflow (WebStorm/VSCode → Memento emulator)
 
-Писать и отлаживать скрипт прямо в поле ввода кода в Memento неудобно —
-нет нормального автодополнения, подсветки ошибок, истории изменений. Рабочая
-схема — писать код в IDE, а в самом Memento (в триггере/скрипте) держать
-только маленький загрузчик, который перечитывает файл с диска при каждом
-запуске:
+Writing and debugging a script directly in the code input field in Memento is inconvenient — no proper autocomplete, error highlighting, or change history. The working scheme is to write code in the IDE, while keeping only a tiny loader inside Memento (in the trigger/script) that re-reads the file from disk on each run:
 
 ```
-WebStorm (или VSCode и т.п.) → file watcher → эмулятор Memento → выполняется код
+WebStorm (or VSCode, etc.) → file watcher → Memento emulator → code executes
 ```
 
-То есть в IDE редактируется любой другой .js файл проекта
-как обычно, с полным автодополнением по `.d.ts`. А непосредственно в самом
-скрипте Memento (том самом окне, куда обычно вставляют код триггера) лежит
-только это:
+That is, any other `.js` file of the project is edited in the IDE as usual, with full autocomplete via `.d.ts`. And directly in the Memento script (the very window where trigger code is normally pasted) only this lives:
 
 ```js
 let f = file("my_script.js");
-var code = f.readAll();     // Читаем весь файл в одну текстовую строку
+var code = f.readAll();     // Reads the entire file into a single text string
 f.close()
-eval(code);                            // Выполняем прочитанный код JavaScript
+eval(code);                            // Executes the read JavaScript code
 ```
 
-Как это работает:
-- `file("my_script.js")` открывает файл по имени в папке, которую Memento
-  использует для скриптов (см. `memento.d.ts` → `file()`) — в десктоп-версии
-  нужно указывать полный путь к файлу.
-- `readAll()` вычитывает все строки файла целиком и закрывает поток чтения;
-- `eval(code)` выполняет этот текст как JavaScript в текущем контексте
-  скрипта Memento — то есть весь код, отредактированный в IDE,
-  реально выполняется так, будто он был вписан прямо в тело триггера.
-  ВАЖНО! Должны быть включены разрешения! В зависимости от задач - чтение файлов
-  (при таком подходе - обязательно), доступ к другим библиотекам,
-  запись файлов, сетевые запросы.
+How it works:
+- `file("my_script.js")` opens the file by name in the folder Memento uses for scripts (see `memento.d.ts` → `file()`) — in the desktop version you must specify the full path to the file.
+- `readAll()` reads all lines of the file at once and closes the read stream;
+- `eval(code)` executes this text as JavaScript in the current Memento script context — so the whole code edited in the IDE actually runs as if it were pasted directly into the trigger body.
+  IMPORTANT! Permissions must be enabled! Depending on the task: file reading (mandatory with this approach), access to other libraries, file writing, network requests.
 
-Практический плюс: если IDE настроена на автосохранение (или используется
-file watcher, синхронизирующий файл в папку, которую видит эмулятор/
-устройство), достаточно сохранить файл в WebStorm — при следующем запуске
-триггера в Memento подтянется уже обновлённый код, без ручного копирования
-текста скрипта в интерфейс Memento.
+Practical benefit: if the IDE is set to auto-save (or a file watcher syncs the file into the folder visible to the emulator/device), saving the file in WebStorm is enough — the next time the trigger runs in Memento it picks up the updated code, with no manual copying of the script text into the Memento UI.
 
-Важно: сам загрузчик (`file()`/`eval()`) остаётся именно в поле кода
-Memento — а не наоборот; путать эти две роли не стоит, иначе автодополнение
-по `.d.ts` в IDE будет работать не для реального кода мастера, а для этого
-маленького загрузчика.
-
-
+Important: the loader itself (`file()`/`eval()`) stays in the Memento code field — not the other way around; don't confuse these two roles, otherwise the `.d.ts` autocomplete in the IDE will work for the small loader instead of the wizard's real code.
