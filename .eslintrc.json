@@ -1,0 +1,44 @@
+{
+  "env": {
+    "es2017": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2017,
+    "sourceType": "script"
+  },
+  "rules": {
+    "no-var": "off",
+
+    "no-restricted-syntax": [
+      "warn",
+
+      {
+        "selector": "ClassDeclaration, ClassExpression",
+        "message": "class не поддерживается движком Memento (Rhino): 'identifier is a reserved word: class'. Используйте обычные функции и объекты."
+      },
+
+      {
+        "selector": "SpreadElement, RestElement, ExperimentalSpreadProperty, ObjectPattern > RestElement",
+        "message": "Spread/rest (...) не поддерживается движком Memento (Rhino): 'syntax error'. Для массивов используйте .concat(), для объектов — Object.assign()."
+      },
+
+      {
+        "selector": "ForStatement > BlockStatement > VariableDeclaration[kind='const']",
+        "message": "const в теле for-цикла может 'залипать' на значении первой итерации в движке Rhino (см. README). Используйте let."
+      },
+      {
+        "selector": "ForOfStatement > BlockStatement > VariableDeclaration[kind='const']",
+        "message": "const в теле for-цикла может 'залипать' на значении первой итерации в движке Rhino (см. README). Используйте let."
+      },
+      {
+        "selector": "ForInStatement > BlockStatement > VariableDeclaration[kind='const']",
+        "message": "const в теле for-цикла может 'залипать' на значении первой итерации в движке Rhino (см. README). Используйте let."
+      },
+
+      {
+        "selector": "ImportDeclaration, ExportNamedDeclaration, ExportDefaultDeclaration, ExportAllDeclaration",
+        "message": "Memento исполняет один файл скрипта целиком, без модульной системы. import/export не применимы."
+      }
+    ]
+  }
+}

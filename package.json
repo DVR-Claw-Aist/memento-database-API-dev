@@ -1,0 +1,10 @@
+{
+  "name": "memento-database-API-dev",
+  "version": "1.0.0",
+  "description": "Декларации типов для Memento Database для IDE",
+  "main": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "private": true
+}

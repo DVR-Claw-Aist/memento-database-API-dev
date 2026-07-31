@@ -1,0 +1,15 @@
+# npm
+node_modules/
+package-lock.json
+
+# IDE
+.idea/
+.vscode/
+
+# Private: local experiment scripts — not part of the public type-declaration repo
+low_level_scripts/
+screens/
+temp.js
+
+# Private: local images
+img/

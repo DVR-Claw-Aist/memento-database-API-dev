@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "checkJs": true,
+    "allowJs": true,
+    "lib": ["ES2017"]
+  },
+  "include": ["**/*.js"],
+  "exclude": ["node_modules"]
+}
+
